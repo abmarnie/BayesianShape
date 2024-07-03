@@ -26,7 +26,7 @@ else
     exit 1
   fi
   
-  # `mv` and tell user what we did.
+  # `mv` the user tell them that we did so.
   cmd="mv $fl $outfl"
   echo $cmd
   $cmd

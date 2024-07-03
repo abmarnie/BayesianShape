@@ -1,124 +1,104 @@
 using HDF5, Printf, Plots, Plots.Measures
 
+## TODO: Add a comment to the top describing which plots in the paper these generate.
+
 include("../src/fourierBasis.jl");
 include("../src/computeRadii.jl");
 include("../src/plotSave.jl");
 
-#labels
-rMinLab = "\$r_{min}\$";      #minimum inner boundary
-rMaxLab = "\$r_{max}\$";      #maximum inner boundary
-rOutLab = "\$\\Gamma^{\\rm outer}\$ (radius \$R\$)";      #outer boundary
-boundaryLab = "\$\\Gamma_b^{\\rm inner}\$ (radius \$c(b_0+b)\$)";  #inner boundary
+# Labels.
+r_min_lab = "\$r_{min}\$"; # Min inner boundary.
+r_max_lab = "\$r_{max}\$"; # Max inner boundary.
+r_out_lab = "\$\\Gamma^{\\rm outer}\$ (radius \$R\$)"; # Outer boundary.
+boundary_lab = "\$\\Gamma_b^{\\rm inner}\$ (radius \$c(b_0+b)\$)";  # Inner boundary.
 
-rOutLabRad = "\$R\$";             #outer boundary
-boundaryLabRad = "\$c(b_0+b)\$";  #inner boundary
-unsquashedLab = "\$b_0+b\$";       #unsquashed boundary
+r_out_lab_rad = "\$R\$";             # Outer boundary.
+boundary_lab_rad = "\$c(b_0+b)\$";   # Inner boundary.
+unsquashed_lab = "\$b_0+b\$";        # Unsquashed boundary.
 
-#run setup to get radius squash (uses default :/ )
-#also gets a0
+# Get `a0`, and run setup to get radius squash (uses default :/ ).
 include("../scenarios/svsector/setup.jl");
 
-#file = "/projects/SIAllocation/stokes/svsector/svsector_029.h5";
 file = "pubs/2022_radius_diagram.h5";
 
 if isfile(file)
-  println("Reading from: $file");
-  f = h5open(file,"r");
-  r    = read(f,"r");
-  b    = read(f,"b");
-  th   = read(f,"th");
-  rMin = read(f,"rMin");
-  rMax = read(f,"rMax");
-  rOut = read(f,"rOut");
-  close(f);
+	println("Reading from: $file")
+	f = h5open(file, "r")
+	r = read(f, "r")
+	b = read(f, "b")
+	angles = read(f, "th")
+	r_min = read(f, "rMin")
+	r_max = read(f, "rMax")
+	r_out = read(f, "rOut")
+	close(f)
 else
-  # #radii
-  # rMin = 0.5; 
-  # rMax = 1.5; 
-  rOut = 2.0; 
-  
-  # #read from file
-  # f = h5open(file);
-  # samples = read(f,"samples");
-  # lpdfs   = read(f,"lpdfs");
-  # close(f);
-  # 
-  # #get index
-  # idx = argmax(lpdfs[:,3]);
-  # samples = samples[idx,:];
-  
-  #angles
-  dth = pi/180;
-  th=0:dth:2*pi;
-  #fourier basis
-  # n  = length(samples);
-  # nf = isodd(n) ? (n-1)÷2 : n÷2;
-  # fb = fourierBasis(nf,th);
-  fb = fourierBasis(unkDim,th);
+	# Radii.
+	r_out = 2.0
 
-  r = zeros(2*unkDim);
-  b = zeros(2*unkDim);
-  samples = zeros(2*unkDim);
+	# Angles.
+	const angles_stride = pi / 180
+	angles = 0:angles_stride:2*pi
 
-  stopIter = false
-  cnt = 1
-  while !stopIter
-    global stopIter, cnt, r, b, samples #julia is annoying
-    println("Attempt $cnt");
-    #draw randomly from prior
-    samples = rand(mcmcP.prior);
-    
-    #compute radii
-    r = computeRadii(samples,th);
-    
-    #compute unsquashed radii
-    b  = a0 .+ fb'*samples;
+	fb = fourierBasis(unkDim, angles)
 
-    pct_at_boundary = ( sum(r .== rMax) + sum(r .== rMin) ) /length(r);
+	r = zeros(2 * unkDim)
+	b = zeros(2 * unkDim)
+	samples = zeros(2 * unkDim)
 
-    stopIter = (pct_at_boundary < 0.25) && (cnt <= 50); 
-    cnt += 1;
-  end
+	stop_iter = false
+	count = 1
+
+	while !stop_iter
+		global stop_iter, count, r, b, samples # Must be global, because of Julia jank.
+
+		println("Attempt $count")
+
+		# Draw randomly from the prior.
+		samples = rand(mcmcP.prior)
+
+		r = computeRadii(samples, angles)
+
+		# Compute unsquashed radii.
+		b = a0 .+ fb' * samples
+
+		pct_at_boundary = (sum(r .== r_max) + sum(r .== r_min)) / length(r)
+
+		stop_iter = (pct_at_boundary < 0.25) && (count <= 50)
+		count += 1
+	end
 end
 
-# #get index
-# idx = argmax(lpdfs[:,3]);
-# r = r[idx,:];
-
-#plot (radial)
+# Plot (radial).
 sz = 500;
-p = plot(proj=:polar,size=(sz,sz), margin=5Plots.mm);
-plot!(p,th,[rMin],ls=:dash,lab=rMinLab);
-plot!(p,th,r,lab=boundaryLab);
-plot!(p,th,[rMax],ls=:dash,lab=rMaxLab);
-plot!(p,th,[rOut],c=:black,lab=rOutLab);
-plotSave(p,"pubs/2022_radius_diagram");
+p = plot(proj = :polar, size = (sz, sz), margin = 5Plots.mm);
+plot!(p, angles, [r_min], ls = :dash, lab = r_min_lab);
+plot!(p, angles, r, lab = boundary_lab);
+plot!(p, angles, [r_max], ls = :dash, lab = r_max_lab);
+plot!(p, angles, [r_out], c = :black, lab = r_out_lab);
+plotSave(p, "pubs/2022_radius_diagram");
 
-#plot (rectangular)
-#set lc to manually match above
-thDeg = th*180/pi;
+# Plot (rectangular).
+# The lc is set to manually match above.
+th_deg = angles * 180 / pi;
 sz = 500;
-p = plot(size=(sz,sz), margin=5Plots.mm, xlab="Angle, \$\\phi\$ (Degrees)", ylab="Radius", xticks=0:90:360);
-#plot!(p,th,[rMin],lc=1,ls=:dash,lab=rMinLab);
-hline!(p,[rMin],lc=1,ls=:dash,lab=rMinLab);
-plot!(p,thDeg,b,lc=4,lab=unsquashedLab);
-plot!(p,thDeg,r,lc=2,lab=boundaryLabRad);
-#plot!(p,th,[rMax],lc=3,ls=:dash,lab=rMaxLab);
-#plot!(p,th,[rOut],c=:black,lab=rOutLabRad);
-hline!(p,[rMax],lc=3,ls=:dash,lab=rMaxLab);
-hline!(p,[rOut],c=:black,lab=rOutLabRad);
-plot!(legend=:bottomright);
-plotSave(p,"pubs/2022_radius_diagram_rect");
+p = plot(size = (sz, sz), margin = 5Plots.mm, xlab = "Angle, \$\\phi\$ (Degrees)", ylab = "Radius", xticks = 0:90:360);
+hline!(p, [r_min], lc = 1, ls = :dash, lab = r_min_lab);
+plot!(p, th_deg, b, lc = 4, lab = unsquashed_lab);
+plot!(p, th_deg, r, lc = 2, lab = boundary_lab_rad);
+hline!(p, [r_max], lc = 3, ls = :dash, lab = r_max_lab);
+hline!(p, [r_out], c = :black, lab = r_out_lab_rad);
+plot!(legend = :bottomright);
+plotSave(p, "pubs/2022_radius_diagram_rect");
 
 if !isfile(file)
-  f = h5open(file,"w");
-  write(f,"r",r);
-  write(f,"b",b);
-  write(f,"samples",samples);
-  write(f,"th",collect(th));
-  write(f,"rMin",rMin);
-  write(f,"rMax",rMax);
-  write(f,"rOut",rOut);
-  close(f);
-  println("Wrote data to: $file");
+	f = h5open(file, "w")
+	write(f, "r", r)
+	write(f, "b", b)
+	write(f, "samples", samples)
+	write(f, "th", collect(angles))
+	write(f, "rMin", r_min)
+	write(f, "rMax", r_max)
+	write(f, "rOut", r_out)
+	close(f)
+	println("Wrote data to: $file")
 end
