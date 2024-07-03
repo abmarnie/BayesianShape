@@ -1,6 +1,7 @@
 #!/bin/bash
-#Slurm submission script for batches of shape optimization problems
-#Example syntax:
+
+# Slurm submission script for batches of shape optimization problems.
+# Example syntax:
 #  sbatch --export=opts="--nsamp=10000" -t44:00:00 submitIso.sh
 
 ##SBATCH -t 144:00:00
@@ -21,7 +22,7 @@ export PKG_ROOT=$SLURM_SUBMIT_DIR
 export OPENBLAS_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 
-#settings
+# Settings.
 #scen="$( echo \"$opts \" | grep -Eo 'scen=* *[[:alnum:]]* ' | sed 's/scen *=*//' | sed 's/ //g' )" #works with --scen=scenario or --scen scenario
 scen="isospectralShape"
 scrfl="scenarios/${scen}/run.jl"
